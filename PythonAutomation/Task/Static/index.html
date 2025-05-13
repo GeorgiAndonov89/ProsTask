@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Process Monitor</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background-color: #f7f7f7; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+    th { background-color: #ddd; }
+    .alert { color: red; font-weight: bold; }
+    .high-cpu { background-color: #ffe5e5; }
+    .high-mem { background-color: #fff0cc; }
+    .logo-title-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .logo {
+      width: 100px;
+      margin-right: 20px;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo-title-container">
+    <img src="/static/Pros.jpg" alt="Pros Logo" class="logo">
+    <div class="header-title">Author: Georgi Andonov</div>
+  </div>
+
+  <h2>🔍 Process Monitor</h2>
+
+  <label>Филтър по име: <input type="text" id="filterName" oninput="loadProcesses()"></label>
+  <label>Сортиране:
+    <select id="sortOrder" onchange="loadProcesses()">
+      <option value="desc">Низходящо</option>
+      <option value="asc">Възходящо</option>
+    </select>
+  </label>
+  <label>Колона за сортиране:
+    <select id="sortBy" onchange="loadProcesses()">
+      <option value="cpu_percent">CPU %</option>
+      <option value="memory_percent">Memory %</option>
+      <option value="pid">PID</option>
+      <option value="name">Name</option>
+    </select>
+  </label>
+
+  <label>Интервал за обновяване (сек): <input type="number" id="refreshInterval" value="10" min="1" onchange="changeInterval()"></label>
+  <button onclick="loadProcesses()">Обнови</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>PID</th>
+        <th>Name</th>
+        <th>CPU %</th>
+        <th>Memory %</th>
+        <th>Alert</th>
+      </tr>
+    </thead>
+    <tbody id="processTable"></tbody>
+  </table>
+
+  <script>
+    let intervalId;
+
+    async function loadProcesses() {
+      const filter = document.getElementById('filterName').value;
+      const sortOrder = document.getElementById('sortOrder').value;
+      const sortBy = document.getElementById('sortBy').value;
+      const descending = sortOrder === 'desc';
+
+      const filterParam = filter ? `&filter_name=${encodeURIComponent(filter)}` : '';
+
+      const response = await fetch(`/processes?descending=${descending}&sort_by=${sortBy}${filterParam}`);
+      const data = await response.json();
+
+      const tbody = document.getElementById('processTable');
+      tbody.innerHTML = "";
+
+      data.forEach(proc => {
+        const row = document.createElement('tr');
+
+        if (proc.alert.includes("High CPU")) row.classList.add('high-cpu');
+        if (proc.alert.includes("High MEM")) row.classList.add('high-mem');
+
+        row.innerHTML = `
+          <td>${proc.pid}</td>
+          <td>${proc.name}</td>
+          <td>${proc.cpu_percent}</td>
+          <td>${proc.memory_percent.toFixed(2)}</td>
+          <td class="alert">${proc.alert}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function changeInterval() {
+      const refreshInterval = parseInt(document.getElementById('refreshInterval').value) * 1000;
+      clearInterval(intervalId);
+      intervalId = setInterval(loadProcesses, refreshInterval);
+    }
+
+    loadProcesses();
+    intervalId = setInterval(loadProcesses, 10000);  // Default 10 seconds
+  </script>
+</body>
+</html>
